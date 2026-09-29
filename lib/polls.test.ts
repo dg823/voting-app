@@ -189,3 +189,15 @@ describe("관리자의 투표 삭제", () => {
     expect(await deletePoll("bad")).toBe(false);
   });
 });
+
+describe("관리자의 마감 연장", () => {
+  test("마감된 투표의 마감 시각을 미래로 바꾸면 다시 진행 중이 되고 투표할 수 있다", async () => {
+    const id = await make("[test] 연장", ["a", "b"], new Date(Date.now() - 60 * 1000));
+    const poll = (await getPoll(id))!;
+    const options = poll.options.map(({ id, label }) => ({ id, label }));
+    const later = new Date(Date.now() + 60 * 60 * 1000);
+    expect(await updatePoll(id, { question: poll.question, options, closesAt: later })).toBe("ok");
+    expect((await getPoll(id))!.isClosed).toBe(false);
+    expect(await castVote(id, poll.options[0].id)).toBe("ok");
+  });
+});

@@ -10,9 +10,12 @@ function sessionSecret(): string {
   return secret;
 }
 
+// 비밀키가 없으면 아무도 관리자가 아닐 뿐, 투표자 화면은 계속 동작해야 한다.
 export async function isAdmin(): Promise<boolean> {
+  const secret = process.env.SESSION_SECRET;
+  if (!secret) return false;
   const token = (await cookies()).get(SESSION_COOKIE)?.value;
-  return verifySessionToken(token, sessionSecret());
+  return verifySessionToken(token, secret);
 }
 
 /** 페이지용: 관리자가 아니면 로그인 화면으로 보낸다. */

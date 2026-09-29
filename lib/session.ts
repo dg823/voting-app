@@ -1,4 +1,4 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 
 // ADR-0004: 관리자 세션 = "만료시각(ms).HMAC서명". DB 세션 테이블 없이 서명만 검증한다.
 export const SESSION_COOKIE = "admin_session";
@@ -26,7 +26,10 @@ export function verifySessionToken(token: string | undefined, secret: string, no
   return safeEqual(signature, sign(expiresAt, secret));
 }
 
+const sha256 = (value: string) => createHash("sha256").update(value).digest();
+
 export function checkAdminPassword(input: string, expected: string | undefined): boolean {
   if (!expected) return false;
-  return safeEqual(input, expected);
+  // 같은 길이의 해시끼리 비교해 비밀번호 길이도 타이밍으로 새지 않게 한다.
+  return timingSafeEqual(sha256(input), sha256(expected));
 }

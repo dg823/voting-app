@@ -1,13 +1,10 @@
 import { redirect } from "next/navigation";
 import LoginForm from "@/components/LoginForm";
 import { isAdmin } from "@/lib/auth";
-
-// 외부 주소로 튕기지 않도록 앱 내부 경로만 허용한다.
-const safeNext = (next: string | string[] | undefined) =>
-  typeof next === "string" && next.startsWith("/") && !next.startsWith("//") ? next : "/";
+import { safeRedirectPath } from "@/lib/safe-redirect";
 
 export default async function AdminLoginPage({ searchParams }: PageProps<"/admin/login">) {
-  const next = safeNext((await searchParams).next);
+  const next = safeRedirectPath((await searchParams).next);
   if (await isAdmin()) redirect(next);
 
   return (
