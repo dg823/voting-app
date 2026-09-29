@@ -1,8 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import PollStatusBadge from "@/components/PollStatusBadge";
+import PollMeta from "@/components/PollMeta";
 import ResultsChart from "@/components/ResultsChart";
-import { formatClosingLabel } from "@/lib/format";
 import { getPoll } from "@/lib/polls";
 import { computeResults } from "@/lib/results";
 
@@ -15,13 +14,7 @@ export default async function ResultsPage({ params }: PageProps<"/polls/[id]/res
 
   return (
     <section>
-      <div className="mb-2 flex items-center gap-2">
-        <PollStatusBadge isClosed={poll.isClosed} />
-        <span className="text-sm text-gray-500">
-          {poll.isClosed ? "최종 결과" : "현재 결과"}
-          {poll.closesAt && ` · ${formatClosingLabel(poll.closesAt)}`}
-        </span>
-      </div>
+      <PollMeta poll={poll} prefix={poll.isClosed ? "최종 결과" : "현재 결과"} />
       <h1 className="mb-8 text-2xl font-bold">{poll.question}</h1>
       <ResultsChart results={results} />
       <Link href="/" className="mt-8 inline-block text-sm text-blue-600 hover:underline">

@@ -1,9 +1,8 @@
 import Link from "next/link";
 import { cookies } from "next/headers";
 import { notFound, redirect } from "next/navigation";
-import PollStatusBadge from "@/components/PollStatusBadge";
+import PollMeta from "@/components/PollMeta";
 import VoteForm from "@/components/VoteForm";
-import { formatClosingLabel } from "@/lib/format";
 import { getPoll } from "@/lib/polls";
 import { votedCookieName } from "@/lib/vote-cookie";
 
@@ -16,12 +15,7 @@ export default async function PollPage({ params }: PageProps<"/polls/[id]">) {
 
   return (
     <section>
-      <div className="mb-2 flex items-center gap-2">
-        <PollStatusBadge isClosed={poll.isClosed} />
-        <span className="text-sm text-gray-500">
-          {formatClosingLabel(poll.closesAt)}
-        </span>
-      </div>
+      <PollMeta poll={poll} />
       <h1 className="mb-6 text-2xl font-bold">{poll.question}</h1>
       <VoteForm
         pollId={poll.id}

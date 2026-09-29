@@ -36,26 +36,31 @@ export async function createPoll(input: PollInput): Promise<string> {
   return rows[0].poll_id;
 }
 
+// 목록·상세가 공유하는 유일한 투표 조회. id가 null이면 전체를 최신순으로.
 // ADR-0002: is_closed는 앱 서버 시계가 아니라 DB 시각(now())으로 계산한다.
+async function selectPolls(id: string | null): Promise<PollSummary[]> {
+  const rows = await sql`
+    select id, question, created_at, closes_at, coalesce(closes_at <= now(), false) as is_closed
+    from polls
+    where ${id}::uuid is null or id = ${id}::uuid
+    order by created_at desc`;
+  return rows.map(toSummary);
+}
+
 export async function getPoll(id: string): Promise<Poll | null> {
   if (!UUID.test(id)) return null;
-  const polls = await sql`
-    select id, question, created_at, closes_at, coalesce(closes_at <= now(), false) as is_closed
-    from polls where id = ${id}`;
-  if (polls.length === 0) return null;
+  const [summary] = await selectPolls(id);
+  if (!summary) return null;
   const options = await sql`
     select id, label, vote_count from options where poll_id = ${id} order by position, id`;
   return {
-    ...toSummary(polls[0]),
+    ...summary,
     options: options.map((o) => ({ id: o.id, label: o.label, votes: o.vote_count })),
   };
 }
 
-export async function listPolls(): Promise<PollSummary[]> {
-  const rows = await sql`
-    select id, question, created_at, closes_at, coalesce(closes_at <= now(), false) as is_closed
-    from polls order by created_at desc`;
-  return rows.map(toSummary);
+export function listPolls(): Promise<PollSummary[]> {
+  return selectPolls(null);
 }
 
 export async function deletePoll(id: string): Promise<void> {
