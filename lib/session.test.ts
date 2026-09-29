@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { checkAdminPassword, createSessionToken, verifySessionToken } from "./session";
+import { checkAdminPassword, createSessionToken, resolveSessionSecret, verifySessionToken } from "./session";
 
 const SECRET = "test-secret-please-change";
 const now = new Date("2026-09-29T09:00:00Z");
@@ -46,5 +46,23 @@ describe("관리자 비밀번호 확인", () => {
   test("관리자 비밀번호가 설정되지 않았으면 아무것도 통과하지 않는다", () => {
     expect(checkAdminPassword("", undefined)).toBe(false);
     expect(checkAdminPassword("", "")).toBe(false);
+  });
+});
+
+describe("세션 비밀키 정하기", () => {
+  test("SESSION_SECRET이 있으면 그 값을 쓴다", () => {
+    expect(resolveSessionSecret({ SESSION_SECRET: "s", ADMIN_PASSWORD: "p" })).toBe("s");
+  });
+
+  test("SESSION_SECRET이 없으면 관리자 비밀번호에서 만든 값을 쓰고, 비밀번호와는 다르다", () => {
+    const secret = resolveSessionSecret({ ADMIN_PASSWORD: "p" });
+    expect(secret).toBeTruthy();
+    expect(secret).not.toBe("p");
+    expect(resolveSessionSecret({ ADMIN_PASSWORD: "p" })).toBe(secret);
+    expect(resolveSessionSecret({ ADMIN_PASSWORD: "q" })).not.toBe(secret);
+  });
+
+  test("둘 다 없으면 null", () => {
+    expect(resolveSessionSecret({})).toBeNull();
   });
 });

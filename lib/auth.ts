@@ -1,18 +1,24 @@
 import "server-only";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { SESSION_COOKIE, SESSION_TTL_MS, createSessionToken, verifySessionToken } from "./session";
+import {
+  SESSION_COOKIE,
+  SESSION_TTL_MS,
+  createSessionToken,
+  resolveSessionSecret,
+  verifySessionToken,
+} from "./session";
 
 // ADR-0004: 권한 검사는 페이지와 API 양쪽에서 이 모듈로 한다.
-function sessionSecret(): string {
-  const secret = process.env.SESSION_SECRET;
-  if (!secret) throw new Error("SESSION_SECRET이 설정되지 않았습니다. .env.local을 확인하세요.");
-  return secret;
-}
+const sessionSecret = () =>
+  resolveSessionSecret({
+    SESSION_SECRET: process.env.SESSION_SECRET,
+    ADMIN_PASSWORD: process.env.ADMIN_PASSWORD,
+  });
 
 // 비밀키가 없으면 아무도 관리자가 아닐 뿐, 투표자 화면은 계속 동작해야 한다.
 export async function isAdmin(): Promise<boolean> {
-  const secret = process.env.SESSION_SECRET;
+  const secret = sessionSecret();
   if (!secret) return false;
   const token = (await cookies()).get(SESSION_COOKIE)?.value;
   return verifySessionToken(token, secret);
@@ -30,7 +36,9 @@ export async function adminOnly(): Promise<Response | null> {
 }
 
 export async function startAdminSession(): Promise<void> {
-  (await cookies()).set(SESSION_COOKIE, createSessionToken(sessionSecret()), {
+  const secret = sessionSecret();
+  if (!secret) throw new Error("ADMIN_PASSWORD가 설정되지 않았습니다.");
+  (await cookies()).set(SESSION_COOKIE, createSessionToken(secret), {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",

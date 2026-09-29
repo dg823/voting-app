@@ -5,9 +5,9 @@ import { checkAdminPassword } from "@/lib/session";
 const FAILED_LOGIN_DELAY_MS = 500;
 
 export async function POST(request: Request) {
-  if (!process.env.ADMIN_PASSWORD || !process.env.SESSION_SECRET) {
+  if (!process.env.ADMIN_PASSWORD) {
     return Response.json(
-      { error: "관리자 로그인이 설정되지 않았습니다. ADMIN_PASSWORD와 SESSION_SECRET을 확인하세요." },
+      { error: "관리자 로그인이 설정되지 않았습니다. ADMIN_PASSWORD를 확인하세요." },
       { status: 503 },
     );
   }

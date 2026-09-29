@@ -28,6 +28,16 @@ export function verifySessionToken(token: string | undefined, secret: string, no
 
 const sha256 = (value: string) => createHash("sha256").update(value).digest();
 
+/**
+ * 세션 서명 비밀키. SESSION_SECRET이 없으면 관리자 비밀번호에서 파생한다(ADR-0004).
+ * 이 경우 관리자 비밀번호를 바꾸면 모든 관리자 세션이 무효가 된다.
+ */
+export function resolveSessionSecret(env: { SESSION_SECRET?: string; ADMIN_PASSWORD?: string }): string | null {
+  if (env.SESSION_SECRET) return env.SESSION_SECRET;
+  if (!env.ADMIN_PASSWORD) return null;
+  return createHmac("sha256", "voting-app-session-key").update(env.ADMIN_PASSWORD).digest("base64url");
+}
+
 export function checkAdminPassword(input: string, expected: string | undefined): boolean {
   if (!expected) return false;
   // 같은 길이의 해시끼리 비교해 비밀번호 길이도 타이밍으로 새지 않게 한다.
