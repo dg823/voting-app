@@ -18,7 +18,7 @@ export default function ResultsChart({ results }: { results: Results }) {
             </div>
             <div
               role="img"
-              aria-label={`${row.label}: ${row.votes}표, ${row.share}%`}
+              aria-label={`${row.label}: ${row.votes}표, ${row.share}%${row.isLeader ? ", 최다 득표" : ""}`}
               className="h-7 w-full overflow-hidden rounded-md bg-gray-100 dark:bg-gray-800"
             >
               <div
@@ -32,7 +32,7 @@ export default function ResultsChart({ results }: { results: Results }) {
         ))}
       </ul>
       <figcaption className="mt-5 text-sm text-gray-500">
-        {results.total === 0 ? "아직 투표가 없습니다." : `총 ${results.total}표`}
+        총 {results.total}표{results.total === 0 && " · 아직 투표한 사람이 없습니다."}
       </figcaption>
     </figure>
   );

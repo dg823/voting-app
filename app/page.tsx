@@ -1,6 +1,6 @@
 import Link from "next/link";
 import PollStatusBadge from "@/components/PollStatusBadge";
-import { formatDateTime } from "@/lib/format";
+import { formatClosingLabel } from "@/lib/format";
 import { listPolls } from "@/lib/polls";
 
 export const dynamic = "force-dynamic";
@@ -31,7 +31,7 @@ export default async function HomePage() {
                   <PollStatusBadge isClosed={poll.isClosed} />
                 </div>
                 <p className="mt-1 text-sm text-gray-500">
-                  {poll.closesAt ? `마감 ${formatDateTime(poll.closesAt)}` : "마감 없음"}
+                  {formatClosingLabel(poll.closesAt)}
                 </p>
               </Link>
             </li>

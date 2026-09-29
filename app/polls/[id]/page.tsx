@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import PollStatusBadge from "@/components/PollStatusBadge";
 import VoteForm from "@/components/VoteForm";
-import { formatDateTime } from "@/lib/format";
+import { formatClosingLabel } from "@/lib/format";
 import { getPoll } from "@/lib/polls";
 import { votedCookieName } from "@/lib/vote-cookie";
 
@@ -19,7 +19,7 @@ export default async function PollPage({ params }: PageProps<"/polls/[id]">) {
       <div className="mb-2 flex items-center gap-2">
         <PollStatusBadge isClosed={poll.isClosed} />
         <span className="text-sm text-gray-500">
-          {poll.closesAt ? `마감 ${formatDateTime(poll.closesAt)}` : "마감 없음"}
+          {formatClosingLabel(poll.closesAt)}
         </span>
       </div>
       <h1 className="mb-6 text-2xl font-bold">{poll.question}</h1>

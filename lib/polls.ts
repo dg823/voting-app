@@ -14,7 +14,6 @@ export type PollSummary = Omit<Poll, "options">;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-// ADR-0002: 마감 여부는 앱 서버 시계가 아니라 DB 시각(now())으로 판정한다.
 type PollRow = Record<string, unknown>;
 const toSummary = (r: PollRow): PollSummary => ({
   id: r.id as string,
@@ -37,6 +36,7 @@ export async function createPoll(input: PollInput): Promise<string> {
   return rows[0].poll_id;
 }
 
+// ADR-0002: is_closed는 앱 서버 시계가 아니라 DB 시각(now())으로 계산한다.
 export async function getPoll(id: string): Promise<Poll | null> {
   if (!UUID.test(id)) return null;
   const polls = await sql`
@@ -63,6 +63,9 @@ export async function deletePoll(id: string): Promise<void> {
 }
 
 export type VoteResult = "ok" | "not_found" | "invalid_option" | "closed";
+
+/** 409 응답의 reason: 이미 투표함(쿠키) 또는 마감됨. */
+export type VoteRejectionReason = "already_voted" | "closed";
 
 export async function castVote(pollId: string, optionId: string): Promise<VoteResult> {
   if (!UUID.test(pollId)) return "not_found";

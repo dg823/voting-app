@@ -20,3 +20,7 @@ export function formatTimeLeft(ms: number): string {
   if (hours > 0) return `${hours}시간 ${mins}분 남음`;
   return `${mins}분 남음`;
 }
+
+export function formatClosingLabel(closesAt: Date | null): string {
+  return closesAt ? `마감 ${formatDateTime(closesAt)}` : "마감 없음";
+}

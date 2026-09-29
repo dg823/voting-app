@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { formatTimeLeft } from "@/lib/format";
-import type { Option } from "@/lib/polls";
+import type { Option, VoteRejectionReason } from "@/lib/polls";
 
 type Props = {
   pollId: string;
@@ -17,22 +17,28 @@ export default function VoteForm({ pollId, options, closesAt, initiallyClosed }:
   const [selected, setSelected] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [closed, setClosed] = useState(initiallyClosed);
+  const [rejectedAsClosed, setRejectedAsClosed] = useState(false);
   const [timeLeft, setTimeLeft] = useState<string | null>(null);
+  const closed = initiallyClosed || rejectedAsClosed;
 
-  // 남은 시간 표시는 참고용이며, 실제 마감 판정은 서버(DB)가 한다(ADR-0002).
+  // 남은 시간 표시는 참고용이다. 브라우저 시계로 마감을 판정하지 않고,
+  // 마감 시각에 도달하면 서버(DB)에 다시 물어본다(ADR-0002).
   useEffect(() => {
     if (!closesAt || initiallyClosed) return;
     const deadline = new Date(closesAt).getTime();
+    let lastRefresh = 0;
     const tick = () => {
       const ms = deadline - Date.now();
-      setTimeLeft(formatTimeLeft(ms));
-      if (ms <= 0) setClosed(true);
+      setTimeLeft(ms > 0 ? formatTimeLeft(ms) : "마감 시각 도달 · 확인 중...");
+      if (ms <= 0 && Date.now() - lastRefresh > 5000) {
+        lastRefresh = Date.now();
+        router.refresh();
+      }
     };
     tick();
     const timer = setInterval(tick, 1000);
     return () => clearInterval(timer);
-  }, [closesAt, initiallyClosed]);
+  }, [closesAt, initiallyClosed, router]);
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -48,9 +54,9 @@ export default function VoteForm({ pollId, options, closesAt, initiallyClosed }:
     });
     if (res.ok) return router.push(`/polls/${pollId}/results`);
 
-    const data = await res.json().catch(() => ({}));
+    const data: { error?: string; reason?: VoteRejectionReason } = await res.json().catch(() => ({}));
     if (data.reason === "already_voted") return router.push(`/polls/${pollId}/results`);
-    if (data.reason === "closed") setClosed(true);
+    if (data.reason === "closed") setRejectedAsClosed(true);
     else setError(data.error ?? "투표하지 못했습니다.");
     setSubmitting(false);
   }
