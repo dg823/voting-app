@@ -3,12 +3,14 @@ import PollSettingTags from "@/components/PollSettingTags";
 import PollStatusBadge from "@/components/PollStatusBadge";
 import RefreshWhenDue from "@/components/RefreshWhenDue";
 import { formatDateTime, formatScheduleLabel, nextStatusChangeAt } from "@/lib/format";
+import { isAdmin } from "@/lib/auth";
 import { listPolls } from "@/lib/polls";
 
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
   const polls = await listPolls();
+  const admin = await isAdmin();
   // 목록의 투표 중 가장 먼저 상태가 바뀌는 시각에 목록을 다시 불러온다.
   const nextChange = polls
     .map(nextStatusChangeAt)
@@ -20,7 +22,14 @@ export default async function HomePage() {
       <RefreshWhenDue at={nextChange?.toISOString() ?? null} />
       <h1 className="mb-6 text-2xl font-bold">전체 투표</h1>
       {polls.length === 0 ? (
-        <p className="text-gray-500">아직 투표가 없습니다.</p>
+        <p className="text-gray-500">
+          아직 투표가 없습니다.{" "}
+          {admin && (
+            <Link href="/new" className="text-blue-600 underline">
+              첫 투표를 만들어 보세요.
+            </Link>
+          )}
+        </p>
       ) : (
         <ul className="space-y-3">
           {polls.map((poll) => (

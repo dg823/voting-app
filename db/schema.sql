@@ -51,3 +51,7 @@ update polls p set ballot_count = s.total
 from (select poll_id, sum(vote_count)::int as total from options group by poll_id) s
 where s.poll_id = p.id and p.ballot_count = 0
   and not exists (select 1 from ballots b where b.poll_id = p.id);
+
+-- [리뷰 반영] 투표지 조회·삭제용 인덱스
+create index if not exists ballots_poll_id_idx on ballots (poll_id);
+create index if not exists ballot_choices_option_id_idx on ballot_choices (option_id);

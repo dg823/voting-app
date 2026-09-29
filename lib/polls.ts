@@ -97,7 +97,8 @@ export type UpdateResult = "ok" | "not_found" | "invalid_option" | "settings_loc
 
 // 선택지 개수는 바꾸지 않는다(득표 보존). 선택지 ID가 이 투표의 선택지와 정확히 일치할 때만,
 // 검사와 수정을 한 문장에서 처리해 일부만 바뀌는 일이 없게 한다.
-// ADR-0005: 투표가 들어온 뒤에는 선택 방식·공개 방식을 바꿀 수 없다.
+// ADR-0005: 투표가 들어온 뒤에는 선택 방식·공개 방식을 바꾸거나 시작 전(예정)으로 되돌릴 수 없다.
+// 잠금 조건은 UPDATE의 WHERE에 둔다: 동시에 들어온 투표 행위가 먼저 커밋되면 행을 다시 읽어 판정한다.
 export async function updatePoll(id: string, update: PollUpdate): Promise<UpdateResult> {
   if (!UUID.test(id)) return "not_found";
   if (!update.options.every((o) => UUID.test(o.id))) return "invalid_option";
@@ -108,17 +109,11 @@ export async function updatePoll(id: string, update: PollUpdate): Promise<Update
     with input as (
       select * from unnest(${ids}::uuid[], ${labels}::text[]) as i(id, label)
     ),
-    locked as (
-      select ballot_count > 0 and (choice_mode <> ${update.choiceMode} or is_anonymous <> ${update.isAnonymous})
-        as yes
-      from polls where id = ${id}
-    ),
     valid as (
       select
         (select count(distinct id) from input) = ${ids.length}
         and (select count(*) from options where poll_id = ${id}) = ${ids.length}
         and (select count(*) from options o join input i on o.id = i.id where o.poll_id = ${id}) = ${ids.length}
-        and not coalesce((select yes from locked), false)
         as ok
     ),
     updated_poll as (
@@ -130,21 +125,25 @@ export async function updatePoll(id: string, update: PollUpdate): Promise<Update
         is_anonymous = ${update.isAnonymous},
         results_after_close = ${update.resultsAfterClose}
       where id = ${id} and (select ok from valid)
+        and (ballot_count = 0 or (
+          choice_mode = ${update.choiceMode} and is_anonymous = ${update.isAnonymous}
+          and (${update.opensAt}::timestamptz is null or ${update.opensAt}::timestamptz <= now())
+        ))
       returning id
     ),
     updated_options as (
       update options o set label = i.label
       from input i
-      where o.id = i.id and o.poll_id = ${id} and (select ok from valid)
+      where o.id = i.id and o.poll_id = ${id} and exists (select 1 from updated_poll)
     )
     select
       exists(select 1 from polls where id = ${id}) as found,
-      coalesce((select yes from locked), false) as locked,
+      (select ok from valid) as options_ok,
       (select count(*) from updated_poll) as poll_updated`;
 
   if (!row.found) return "not_found";
-  if (row.locked) return "settings_locked";
-  return Number(row.poll_updated) === 1 ? "ok" : "invalid_option";
+  if (Number(row.poll_updated) === 1) return "ok";
+  return row.options_ok ? "settings_locked" : "invalid_option";
 }
 
 /** 선택지·투표지·득표는 on delete cascade로 함께 지워진다. */
@@ -162,19 +161,24 @@ export type VoteResult =
   | "not_open"
   | "closed"
   | "name_required"
+  | "name_invalid"
   | "name_taken";
 
 /** 409 응답의 reason: 이미 투표함(쿠키/이름), 아직 시작 전, 마감됨. */
 export type VoteRejectionReason = "already_voted" | "not_open" | "closed";
 
-const isUniqueViolation = (e: unknown) => (e as { code?: string })?.code === "23505";
+const isVoterNameTaken = (e: unknown) => {
+  const err = e as { code?: string; constraint?: string };
+  return err?.code === "23505" && err.constraint === "ballots_poll_voter_name_uniq";
+};
 
 export async function castVote(pollId: string, ballot: Ballot): Promise<VoteResult> {
   if (!UUID.test(pollId)) return "not_found";
   const { optionIds } = ballot;
   if (optionIds.length === 0 || !optionIds.every((id) => UUID.test(id))) return "invalid_option";
   const voterName = ballot.voterName?.trim() || null;
-  if (voterName && voterName.length > MAX_VOTER_NAME_LENGTH) return "name_required";
+  // 글자 수는 화면에 보이는 글자 기준(이모지 한 개 = 한 글자)으로 센다.
+  if (voterName && [...voterName].length > MAX_VOTER_NAME_LENGTH) return "name_invalid";
 
   // ADR-0005: 일정 검사, 선택지 검사, 투표지 기록, 득표·투표자 수 증가를 한 문장에서 처리한다.
   let recorded: number;
@@ -185,6 +189,8 @@ export async function castVote(pollId: string, ballot: Ballot): Promise<VoteResu
         where id = ${pollId}
           and (opens_at is null or opens_at <= now())
           and (closes_at is null or closes_at > now())
+        -- 동시에 들어온 수정(선택 방식 변경 등)과 순서를 정하기 위해 행을 잠근다.
+        for update
       ),
       picked as (
         select distinct option_id from unnest(${optionIds}::uuid[]) as p(option_id)
@@ -219,7 +225,7 @@ export async function castVote(pollId: string, ballot: Ballot): Promise<VoteResu
       select count(*)::int as recorded from ballot`;
     recorded = row.recorded;
   } catch (e) {
-    if (isUniqueViolation(e)) return "name_taken";
+    if (isVoterNameTaken(e)) return "name_taken";
     throw e;
   }
   if (recorded === 1) return "ok";

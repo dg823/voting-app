@@ -26,6 +26,8 @@ export default async function PollPage({ params }: PageProps<"/polls/[id]">) {
       <PollMeta poll={poll} />
       <h1 className="mb-6 text-2xl font-bold">{poll.question}</h1>
       <VoteForm
+        // 서버가 판정한 상태가 바뀌면(예정→진행 중 등) 폼을 새로 만들어 이전 거부 상태를 지운다.
+        key={poll.status}
         pollId={poll.id}
         // 득표수는 넘기지 않는다: 마감 후 공개 투표의 결과가 브라우저로 새지 않게.
         options={poll.options.map(({ id, label }) => ({ id, label }))}

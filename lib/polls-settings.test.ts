@@ -125,3 +125,21 @@ describe("설정 잠금", () => {
     expect([after.choiceMode, after.isAnonymous]).toEqual(["multiple", false]);
   });
 });
+
+describe("리뷰 반영", () => {
+  test("투표가 들어온 뒤에는 시작 시각을 미래로 옮겨 예정으로 되돌릴 수 없다", async () => {
+    const { id, poll, ids } = await make(["a", "b"]);
+    await castVote(id, { optionIds: [ids[0]] });
+    const base = { question: poll.question, options: poll.options.map(({ id, label }) => ({ id, label })) };
+    expect(await updatePoll(id, { ...base, ...DEFAULTS, opensAt: inHours(1), closesAt: inHours(2) })).toBe(
+      "settings_locked",
+    );
+    expect((await getPoll(id))!.status).toBe("open");
+  });
+
+  test("실명 투표 이름이 20자를 넘으면 name_invalid (이모지도 한 글자로 센다)", async () => {
+    const { id, ids } = await make(["a", "b"], { isAnonymous: false });
+    expect(await castVote(id, { optionIds: [ids[0]], voterName: "가".repeat(21) })).toBe("name_invalid");
+    expect(await castVote(id, { optionIds: [ids[0]], voterName: "😀".repeat(20) })).toBe("ok");
+  });
+});

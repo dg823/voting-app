@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { castVote, type VoteRejectionReason } from "@/lib/polls";
 import { VOTED_COOKIE_MAX_AGE, votedCookieName } from "@/lib/vote-cookie";
+import { MAX_VOTER_NAME_LENGTH } from "@/lib/voter-name";
 
 const reject = (status: number, error: string, reason?: VoteRejectionReason) =>
   Response.json(reason ? { error, reason } : { error }, { status });
@@ -11,12 +12,9 @@ export async function POST(request: Request, ctx: RouteContext<"/api/polls/[id]/
   if (cookieStore.has(votedCookieName(id))) return reject(409, "이미 투표했습니다.", "already_voted");
 
   const body = await request.json().catch(() => null);
-  // optionId(단일, 이전 형식)와 optionIds(목록) 모두 받는다.
   const optionIds: string[] = Array.isArray(body?.optionIds)
     ? body.optionIds.filter((v: unknown): v is string => typeof v === "string")
-    : typeof body?.optionId === "string"
-      ? [body.optionId]
-      : [];
+    : [];
   const voterName = typeof body?.voterName === "string" ? body.voterName : null;
 
   const result = await castVote(id, { optionIds, voterName });
@@ -29,7 +27,9 @@ export async function POST(request: Request, ctx: RouteContext<"/api/polls/[id]/
     case "closed":
       return reject(409, "마감된 투표입니다.", "closed");
     case "name_required":
-      return reject(400, "실명 투표입니다. 이름을 1~20자로 입력해 주세요.");
+      return reject(400, "실명 투표입니다. 이름을 입력해 주세요.");
+    case "name_invalid":
+      return reject(400, `이름은 ${MAX_VOTER_NAME_LENGTH}자 이하로 입력해 주세요.`);
     case "name_taken":
       return reject(409, "이 이름으로 이미 투표했습니다.", "already_voted");
     case "invalid_option":

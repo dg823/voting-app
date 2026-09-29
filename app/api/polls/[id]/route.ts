@@ -41,7 +41,7 @@ export async function PATCH(request: Request, ctx: RouteContext<"/api/polls/[id]
       return notFound();
     case "settings_locked":
       return Response.json(
-        { error: "이미 투표가 들어온 투표는 선택 방식과 공개 방식을 바꿀 수 없습니다." },
+        { error: "이미 투표가 들어온 투표는 선택 방식·공개 방식을 바꾸거나 시작 시각을 미래로 옮길 수 없습니다." },
         { status: 400 },
       );
     case "invalid_option":

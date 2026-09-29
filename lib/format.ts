@@ -1,3 +1,5 @@
+import type { PollStatus } from "./polls";
+
 export function formatDateTime(date: Date): string {
   return date.toLocaleString("ko-KR", {
     timeZone: "Asia/Seoul",
@@ -26,7 +28,7 @@ export function formatClosingLabel(closesAt: Date | null): string {
   return closesAt ? `마감 ${formatDateTime(closesAt)}` : "마감 없음";
 }
 
-type Schedule = { opensAt: Date | null; closesAt: Date | null; status: "scheduled" | "open" | "closed" };
+type Schedule = { opensAt: Date | null; closesAt: Date | null; status: PollStatus };
 
 /** "시작 … · 마감 …" 한 줄. 시작 시각은 아직 시작 전일 때만 보여준다. */
 export function formatScheduleLabel({ opensAt, closesAt, status }: Schedule): string {

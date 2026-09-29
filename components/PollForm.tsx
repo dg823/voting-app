@@ -205,7 +205,12 @@ export default function PollForm({ editing }: { editing?: EditablePoll }) {
       </fieldset>
 
       <div className="space-y-4">
-        <DateTimeField label="시작 시각" hint="선택, 비워두면 바로 시작" value={opensAtLocal} onChange={setOpensAtLocal} />
+        <DateTimeField
+          label="시작 시각"
+          hint={lockedReason ? "이미 투표가 들어와서 미래로 옮길 수 없어요" : "선택, 비워두면 바로 시작"}
+          value={opensAtLocal}
+          onChange={setOpensAtLocal}
+        />
         <DateTimeField
           label="마감 시각"
           hint="선택, 비워두면 마감 없음"
@@ -240,7 +245,7 @@ export default function PollForm({ editing }: { editing?: EditablePoll }) {
         onChange={setResultsAfterClose}
         choices={[
           { value: false, label: "항상 공개", hint: "투표 중에도 결과를 볼 수 있어요" },
-          { value: true, label: "마감 후 자동 공개", hint: "마감 시각이 되면 자동으로 공개돼요" },
+          { value: true, label: "마감 후 자동 공개", hint: "마감 시각이 되면 자동으로 공개돼요 (마감 시각 필요)" },
         ]}
       />
 
