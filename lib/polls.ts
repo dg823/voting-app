@@ -42,3 +42,19 @@ export async function listPolls(): Promise<PollSummary[]> {
 export async function deletePoll(id: string): Promise<void> {
   await sql`delete from polls where id = ${id}`;
 }
+
+export type VoteResult = "ok" | "not_found" | "invalid_option";
+
+export async function castVote(pollId: string, optionId: string): Promise<VoteResult> {
+  if (!UUID.test(pollId)) return "not_found";
+  if (!UUID.test(optionId)) return "invalid_option";
+
+  const updated = await sql`
+    update options set vote_count = vote_count + 1
+    where id = ${optionId} and poll_id = ${pollId}
+    returning id`;
+  if (updated.length > 0) return "ok";
+
+  const poll = await sql`select 1 from polls where id = ${pollId}`;
+  return poll.length === 0 ? "not_found" : "invalid_option";
+}
