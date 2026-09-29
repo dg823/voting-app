@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { computeResults } from "./results";
+import { canSeeResults, computeResults } from "./results";
 
 const opt = (id: string, votes: number) => ({ id, label: id, votes });
 
@@ -39,5 +39,33 @@ describe("computeResults", () => {
       ["x", 3],
       ["y", 7],
     ]);
+  });
+});
+
+describe("복수 선택 득표율", () => {
+  test("득표율은 투표자 수 기준이라 합이 100%를 넘을 수 있다", () => {
+    // 투표자 4명: a를 3명, b를 2명, c를 1명이 골랐다.
+    const r = computeResults([opt("a", 3), opt("b", 2), opt("c", 1)], 4);
+    expect(r.total).toBe(4);
+    expect(r.rows.map((x) => x.share)).toEqual([75, 50, 25]);
+    expect(r.rows.map((x) => x.isLeader)).toEqual([true, false, false]);
+  });
+});
+
+describe("결과를 보여줄 수 있는지", () => {
+  const poll = (resultsAfterClose: boolean, status: "scheduled" | "open" | "closed") => ({ resultsAfterClose, status });
+
+  test("항상 공개 투표는 누구나 언제든 본다", () => {
+    expect(canSeeResults(poll(false, "open"), false)).toBe(true);
+  });
+
+  test("마감 후 공개 투표는 마감 전에는 숨겨지고 마감되면 보인다", () => {
+    expect(canSeeResults(poll(true, "scheduled"), false)).toBe(false);
+    expect(canSeeResults(poll(true, "open"), false)).toBe(false);
+    expect(canSeeResults(poll(true, "closed"), false)).toBe(true);
+  });
+
+  test("관리자는 마감 전에도 본다", () => {
+    expect(canSeeResults(poll(true, "open"), true)).toBe(true);
   });
 });

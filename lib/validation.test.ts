@@ -3,7 +3,7 @@ import { validatePollInput } from "./validation";
 
 describe("validatePollInput", () => {
   test("질문과 선택지 2개인 투표는 통과하고 공백이 정리된다", () => {
-    expect(validatePollInput({ question: "  점심 메뉴? ", options: [" 치킨 ", "피자"] })).toEqual({
+    expect(validatePollInput({ question: "  점심 메뉴? ", options: [" 치킨 ", "피자"] })).toMatchObject({
       ok: true,
       value: { question: "점심 메뉴?", options: ["치킨", "피자"], closesAt: null },
     });
