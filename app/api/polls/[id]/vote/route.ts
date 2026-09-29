@@ -6,7 +6,7 @@ export async function POST(request: Request, ctx: RouteContext<"/api/polls/[id]/
   const { id } = await ctx.params;
   const cookieStore = await cookies();
   if (cookieStore.has(votedCookieName(id))) {
-    return Response.json({ error: "이미 투표했습니다." }, { status: 409 });
+    return Response.json({ error: "이미 투표했습니다.", reason: "already_voted" }, { status: 409 });
   }
 
   const body = await request.json().catch(() => null);
@@ -16,6 +16,9 @@ export async function POST(request: Request, ctx: RouteContext<"/api/polls/[id]/
   switch (result) {
     case "not_found":
       return Response.json({ error: "투표를 찾을 수 없습니다." }, { status: 404 });
+    case "closed":
+      // ADR-0002: 화면에서 막더라도 서버가 최종적으로 거부한다.
+      return Response.json({ error: "마감된 투표입니다.", reason: "closed" }, { status: 409 });
     case "invalid_option":
       return Response.json({ error: "선택지를 다시 골라 주세요." }, { status: 400 });
     case "ok":

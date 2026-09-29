@@ -2,8 +2,8 @@ import { afterAll, describe, expect, test } from "vitest";
 import { castVote, createPoll, deletePoll, getPoll, listPolls } from "./polls";
 
 const created: string[] = [];
-async function make(question: string, options: string[]) {
-  const id = await createPoll({ question, options });
+async function make(question: string, options: string[], closesAt: Date | null = null) {
+  const id = await createPoll({ question, options, closesAt });
   created.push(id);
   return id;
 }
@@ -61,5 +61,41 @@ describe("투표 행위", () => {
       "not_found",
     );
     expect(await castVote("bad", "bad")).toBe("not_found");
+  });
+});
+
+describe("마감 시각", () => {
+  const future = () => new Date(Date.now() + 60 * 60 * 1000);
+  const past = () => new Date(Date.now() - 60 * 1000);
+
+  test("마감 시각 없이 만든 투표는 진행 중이고 투표할 수 있다", async () => {
+    const id = await make("[test] 무기한", ["a", "b"]);
+    const poll = (await getPoll(id))!;
+    expect(poll.closesAt).toBeNull();
+    expect(poll.isClosed).toBe(false);
+    expect(await castVote(id, poll.options[0].id)).toBe("ok");
+  });
+
+  test("미래 마감 시각은 저장되고 그 전까지는 투표할 수 있다", async () => {
+    const closesAt = future();
+    const id = await make("[test] 한 시간 뒤 마감", ["a", "b"], closesAt);
+    const poll = (await getPoll(id))!;
+    expect(poll.closesAt?.getTime()).toBe(closesAt.getTime());
+    expect(poll.isClosed).toBe(false);
+    expect(await castVote(id, poll.options[0].id)).toBe("ok");
+  });
+
+  test("마감 시각이 지난 투표는 마감됨이고 투표 행위를 거부하며 득표가 바뀌지 않는다", async () => {
+    const id = await make("[test] 이미 마감", ["a", "b"], past());
+    const poll = (await getPoll(id))!;
+    expect(poll.isClosed).toBe(true);
+    expect(await castVote(id, poll.options[0].id)).toBe("closed");
+    expect((await getPoll(id))!.options[0].votes).toBe(0);
+  });
+
+  test("목록에서도 마감 여부를 알 수 있다", async () => {
+    const id = await make("[test] 목록 마감", ["a", "b"], past());
+    const summary = (await listPolls()).find((p) => p.id === id);
+    expect(summary?.isClosed).toBe(true);
   });
 });

@@ -11,6 +11,7 @@ export default function CreatePollForm() {
   const router = useRouter();
   const [question, setQuestion] = useState("");
   const [options, setOptions] = useState(["", ""]);
+  const [closesAtLocal, setClosesAtLocal] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -20,7 +21,9 @@ export default function CreatePollForm() {
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
-    const input = { question, options };
+    // datetime-local 값은 브라우저 현지 시각이므로 ISO(UTC)로 바꿔 보낸다.
+    const closesAt = closesAtLocal ? new Date(closesAtLocal).toISOString() : null;
+    const input = { question, options, closesAt };
     const check = validatePollInput(input);
     if (!check.ok) return setError(check.error);
 
@@ -86,6 +89,29 @@ export default function CreatePollForm() {
           </button>
         )}
       </fieldset>
+
+      <label className="block">
+        <span className="mb-1 block font-medium">
+          마감 시각 <span className="text-sm font-normal text-gray-500">(선택, 비워두면 마감 없음)</span>
+        </span>
+        <div className="flex gap-2">
+          <input
+            type="datetime-local"
+            className={inputClass}
+            value={closesAtLocal}
+            onChange={(e) => setClosesAtLocal(e.target.value)}
+          />
+          {closesAtLocal && (
+            <button
+              type="button"
+              onClick={() => setClosesAtLocal("")}
+              className="rounded-md border border-black/20 px-3 text-sm dark:border-white/25"
+            >
+              지우기
+            </button>
+          )}
+        </div>
+      </label>
 
       {error && <p className="text-sm text-red-600">{error}</p>}
 
