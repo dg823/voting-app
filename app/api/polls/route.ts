@@ -1,9 +1,11 @@
-import { adminOnly } from "@/lib/auth";
+import { adminOnly, isAdmin } from "@/lib/auth";
 import { createPoll, listPolls } from "@/lib/polls";
+import { publicSummary } from "@/lib/public-view";
 import { validatePollInput } from "@/lib/validation";
 
 export async function GET() {
-  return Response.json(await listPolls());
+  const admin = await isAdmin();
+  return Response.json((await listPolls()).map((poll) => publicSummary(poll, admin)));
 }
 
 export async function POST(request: Request) {

@@ -17,7 +17,12 @@ export default async function EditPollPage({ params }: PageProps<"/polls/[id]/ed
           id: poll.id,
           question: poll.question,
           options: poll.options.map(({ id, label }) => ({ id, label })),
+          opensAt: poll.opensAt?.toISOString() ?? null,
           closesAt: poll.closesAt?.toISOString() ?? null,
+          choiceMode: poll.choiceMode,
+          isAnonymous: poll.isAnonymous,
+          resultsAfterClose: poll.resultsAfterClose,
+          settingsLocked: poll.ballotCount > 0,
         }}
       />
     </section>

@@ -1,5 +1,6 @@
 import { sql } from "./db";
 import type { ChoiceMode, PollInput, PollSettings } from "./validation";
+import { MAX_VOTER_NAME_LENGTH } from "./voter-name";
 
 export type PollStatus = "scheduled" | "open" | "closed";
 export type Option = { id: string; label: string; votes: number };
@@ -13,7 +14,6 @@ export type PollSummary = {
 export type Poll = PollSummary & { options: Option[] };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-export const MAX_VOTER_NAME_LENGTH = 20;
 
 type PollRow = Record<string, unknown>;
 const toDate = (v: unknown) => (v ? new Date(v as string) : null);
