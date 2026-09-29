@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import LogoutButton from "@/components/LogoutButton";
+import { isAdmin } from "@/lib/auth";
 import "./globals.css";
 
 const AUTHOR = "이동건";
@@ -10,7 +12,9 @@ export const metadata: Metadata = {
   authors: [{ name: AUTHOR }],
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  const admin = await isAdmin();
+
   return (
     <html lang="ko" className="h-full antialiased">
       <body className="min-h-full flex flex-col">
@@ -20,12 +24,22 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               <span className="text-lg font-bold">🗳️ 투표 앱</span>
               <span className="text-sm text-gray-500">by {AUTHOR}</span>
             </Link>
-            <Link
-              href="/new"
-              className="shrink-0 rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
-            >
-              새 투표 만들기
-            </Link>
+            {admin ? (
+              <div className="flex shrink-0 items-center gap-3">
+                <span className="text-xs font-medium text-blue-600">관리자</span>
+                <LogoutButton />
+                <Link
+                  href="/new"
+                  className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
+                >
+                  새 투표 만들기
+                </Link>
+              </div>
+            ) : (
+              <Link href="/admin/login" className="shrink-0 text-sm text-gray-500 hover:underline">
+                관리자 로그인
+              </Link>
+            )}
           </nav>
         </header>
         <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-8">{children}</main>
