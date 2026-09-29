@@ -54,3 +54,21 @@ describe("마감 시각 검증", () => {
     expect(validatePollInput({ ...base, closesAt: 123 }, now).ok).toBe(false);
   });
 });
+
+describe("수정 시 마감 시각 검증", () => {
+  const now = new Date("2026-09-29T09:00:00Z");
+  const base = { question: "q", options: ["a", "b"] };
+  const pastIso = "2026-09-28T09:00:00.000Z";
+
+  test("이미 지난 기존 마감 시각을 그대로 두는 것은 허용된다", () => {
+    const result = validatePollInput({ ...base, closesAt: pastIso }, now, { currentClosesAt: new Date(pastIso) });
+    expect(result.ok && result.value.closesAt?.toISOString()).toBe(pastIso);
+  });
+
+  test("다른 과거 시각으로 바꾸는 것은 거부된다", () => {
+    const result = validatePollInput({ ...base, closesAt: "2026-09-27T09:00:00.000Z" }, now, {
+      currentClosesAt: new Date(pastIso),
+    });
+    expect(result.ok).toBe(false);
+  });
+});

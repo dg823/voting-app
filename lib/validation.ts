@@ -7,7 +7,14 @@ export type ValidationResult =
   | { ok: true; value: PollInput }
   | { ok: false; error: string };
 
-export function validatePollInput(raw: unknown, now: Date = new Date()): ValidationResult {
+/** 수정할 때 넘기는 기존 값. 이미 지난 기존 마감 시각은 그대로 두는 것만 허용한다. */
+export type ValidationContext = { currentClosesAt?: Date | null };
+
+export function validatePollInput(
+  raw: unknown,
+  now: Date = new Date(),
+  { currentClosesAt = null }: ValidationContext = {},
+): ValidationResult {
   if (typeof raw !== "object" || raw === null) {
     return { ok: false, error: "잘못된 요청입니다." };
   }
@@ -28,14 +35,15 @@ export function validatePollInput(raw: unknown, now: Date = new Date()): Validat
   }
 
   // 마감 시각은 선택 입력: 비어 있으면 무기한 진행.
-  let closingTime: Date | null = null;
+  let parsedClosesAt: Date | null = null;
   if (closesAt !== undefined && closesAt !== null && closesAt !== "") {
     if (typeof closesAt !== "string" || Number.isNaN(Date.parse(closesAt))) {
       return { ok: false, error: "마감 시각 형식이 올바르지 않습니다." };
     }
-    closingTime = new Date(closesAt);
-    if (closingTime <= now) return { ok: false, error: "마감 시각은 현재 이후여야 합니다." };
+    parsedClosesAt = new Date(closesAt);
+    const unchanged = currentClosesAt?.getTime() === parsedClosesAt.getTime();
+    if (parsedClosesAt <= now && !unchanged) return { ok: false, error: "마감 시각은 현재 이후여야 합니다." };
   }
 
-  return { ok: true, value: { question: trimmedQuestion, options: trimmedOptions, closesAt: closingTime } };
+  return { ok: true, value: { question: trimmedQuestion, options: trimmedOptions, closesAt: parsedClosesAt } };
 }

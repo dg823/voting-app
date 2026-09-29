@@ -7,11 +7,28 @@ import { MAX_OPTIONS, MIN_OPTIONS, validatePollInput } from "@/lib/validation";
 const inputClass =
   "w-full rounded-md border border-black/20 bg-transparent px-3 py-2 focus:border-blue-600 focus:outline-none dark:border-white/25";
 
-export default function CreatePollForm() {
+/** 수정 모드에서 받는 기존 투표. 선택지 개수는 바꿀 수 없다(득표 보존). */
+export type EditablePoll = {
+  id: string;
+  question: string;
+  options: { id: string; label: string }[];
+  closesAt: string | null;
+};
+
+// datetime-local 입력은 브라우저 현지 시각 "YYYY-MM-DDTHH:mm" 형식을 쓴다.
+function toLocalInput(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+export default function PollForm({ editing }: { editing?: EditablePoll }) {
   const router = useRouter();
-  const [question, setQuestion] = useState("");
-  const [options, setOptions] = useState(["", ""]);
-  const [closesAtLocal, setClosesAtLocal] = useState("");
+  const initialClosesAtLocal = toLocalInput(editing?.closesAt ?? null);
+  const [question, setQuestion] = useState(editing?.question ?? "");
+  const [options, setOptions] = useState(editing?.options.map((o) => o.label) ?? ["", ""]);
+  const [closesAtLocal, setClosesAtLocal] = useState(initialClosesAtLocal);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -22,24 +39,42 @@ export default function CreatePollForm() {
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     // datetime-local 값은 브라우저 현지 시각이므로 ISO(UTC)로 바꿔 보낸다.
-    const closesAt = closesAtLocal ? new Date(closesAtLocal).toISOString() : null;
-    const input = { question, options, closesAt };
-    const check = validatePollInput(input);
+    // 수정 중 마감 시각을 건드리지 않았다면 기존 값을 그대로 보낸다(초 단위 보존).
+    const closesAt =
+      editing && closesAtLocal === initialClosesAtLocal
+        ? editing.closesAt
+        : closesAtLocal
+          ? new Date(closesAtLocal).toISOString()
+          : null;
+    const check = validatePollInput({ question, options, closesAt }, new Date(), {
+      currentClosesAt: editing?.closesAt ? new Date(editing.closesAt) : null,
+    });
     if (!check.ok) return setError(check.error);
 
     setSubmitting(true);
     setError(null);
-    const res = await fetch("/api/polls", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(input),
-    });
-    const data = await res.json();
+    const res = editing
+      ? await fetch(`/api/polls/${editing.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            question,
+            options: editing.options.map((o, i) => ({ id: o.id, label: options[i] })),
+            closesAt,
+          }),
+        })
+      : await fetch("/api/polls", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ question, options, closesAt }),
+        });
+    const data = await res.json().catch(() => ({}));
     if (!res.ok) {
       setSubmitting(false);
-      return setError(data.error ?? "투표를 만들지 못했습니다.");
+      return setError(data.error ?? "저장하지 못했습니다.");
     }
-    router.push(`/polls/${data.id}`);
+    router.push(`/polls/${editing?.id ?? data.id}`);
+    router.refresh();
   }
 
   return (
@@ -56,7 +91,10 @@ export default function CreatePollForm() {
 
       <fieldset className="space-y-2">
         <legend className="mb-1 font-medium">
-          선택지 ({MIN_OPTIONS}~{MAX_OPTIONS}개)
+          선택지{" "}
+          <span className="text-sm font-normal text-gray-500">
+            {editing ? "(이름만 수정할 수 있어요. 득표는 유지돼요)" : `(${MIN_OPTIONS}~${MAX_OPTIONS}개)`}
+          </span>
         </legend>
         {options.map((option, i) => (
           <div key={i} className="flex gap-2">
@@ -67,7 +105,7 @@ export default function CreatePollForm() {
               placeholder={`선택지 ${i + 1}`}
               aria-label={`선택지 ${i + 1}`}
             />
-            {options.length > MIN_OPTIONS && (
+            {!editing && options.length > MIN_OPTIONS && (
               <button
                 type="button"
                 onClick={() => setOptions((prev) => prev.filter((_, j) => j !== i))}
@@ -79,7 +117,7 @@ export default function CreatePollForm() {
             )}
           </div>
         ))}
-        {options.length < MAX_OPTIONS && (
+        {!editing && options.length < MAX_OPTIONS && (
           <button
             type="button"
             onClick={() => setOptions((prev) => [...prev, ""])}
@@ -120,7 +158,7 @@ export default function CreatePollForm() {
         disabled={submitting}
         className="rounded-md bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700 disabled:opacity-50"
       >
-        {submitting ? "만드는 중..." : "투표 만들기"}
+        {submitting ? "저장 중..." : editing ? "수정 저장" : "투표 만들기"}
       </button>
     </form>
   );

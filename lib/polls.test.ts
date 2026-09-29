@@ -1,5 +1,5 @@
 import { afterAll, describe, expect, test } from "vitest";
-import { castVote, createPoll, deletePoll, getPoll, listPolls } from "./polls";
+import { castVote, createPoll, deletePoll, getPoll, listPolls, updatePoll } from "./polls";
 
 const created: string[] = [];
 async function make(question: string, options: string[], closesAt: Date | null = null) {
@@ -97,5 +97,95 @@ describe("마감 시각", () => {
     const id = await make("[test] 목록 마감", ["a", "b"], past());
     const summary = (await listPolls()).find((p) => p.id === id);
     expect(summary?.isClosed).toBe(true);
+  });
+});
+
+describe("관리자의 투표 수정", () => {
+  test("질문·선택지 이름·마감 시각을 바꾸면 조회에 반영되고 득표는 유지된다", async () => {
+    const id = await make("[test] 오타 있는 질문", ["치킨", "피잔"]);
+    const [a, b] = (await getPoll(id))!.options;
+    await castVote(id, b.id);
+    const closesAt = new Date(Date.now() + 60 * 60 * 1000);
+
+    expect(
+      await updatePoll(id, {
+        question: "[test] 고친 질문",
+        options: [
+          { id: a.id, label: "치킨" },
+          { id: b.id, label: "피자" },
+        ],
+        closesAt,
+      }),
+    ).toBe("ok");
+
+    const poll = (await getPoll(id))!;
+    expect(poll.question).toBe("[test] 고친 질문");
+    expect(poll.options.map((o) => [o.label, o.votes])).toEqual([
+      ["치킨", 0],
+      ["피자", 1],
+    ]);
+    expect(poll.closesAt?.getTime()).toBe(closesAt.getTime());
+  });
+
+  test("마감 시각을 지우면 마감된 투표가 다시 진행 중이 된다", async () => {
+    const id = await make("[test] 다시 열기", ["a", "b"], new Date(Date.now() - 60 * 1000));
+    const poll = (await getPoll(id))!;
+    expect(poll.isClosed).toBe(true);
+    const options = poll.options.map(({ id, label }) => ({ id, label }));
+    expect(await updatePoll(id, { question: poll.question, options, closesAt: null })).toBe("ok");
+    expect((await getPoll(id))!.isClosed).toBe(false);
+  });
+
+  test("다른 투표의 선택지 ID가 섞이면 아무것도 바뀌지 않는다", async () => {
+    const one = await make("[test] 원래 질문", ["a", "b"]);
+    const two = await make("[test] 남의 투표", ["c", "d"]);
+    const [a] = (await getPoll(one))!.options;
+    const [c] = (await getPoll(two))!.options;
+
+    const result = await updatePoll(one, {
+      question: "[test] 바뀌면 안 됨",
+      options: [
+        { id: a.id, label: "a2" },
+        { id: c.id, label: "c2" },
+      ],
+      closesAt: null,
+    });
+    expect(result).toBe("invalid_option");
+    expect((await getPoll(one))!.question).toBe("[test] 원래 질문");
+    expect((await getPoll(two))!.options[0].label).toBe("c");
+  });
+
+  test("선택지 개수가 기존과 다르면 거부된다", async () => {
+    const id = await make("[test] 개수", ["a", "b", "c"]);
+    const [a, b] = (await getPoll(id))!.options;
+    const result = await updatePoll(id, {
+      question: "q",
+      options: [
+        { id: a.id, label: "a" },
+        { id: b.id, label: "b" },
+      ],
+      closesAt: null,
+    });
+    expect(result).toBe("invalid_option");
+  });
+
+  test("없는 투표는 not_found", async () => {
+    expect(await updatePoll("00000000-0000-0000-0000-000000000000", { question: "q", options: [], closesAt: null })).toBe(
+      "not_found",
+    );
+  });
+});
+
+describe("관리자의 투표 삭제", () => {
+  test("삭제한 투표는 조회되지 않고 목록에서도 사라진다", async () => {
+    const id = await createPoll({ question: "[test] 지울 투표", options: ["a", "b"], closesAt: null });
+    expect(await deletePoll(id)).toBe(true);
+    expect(await getPoll(id)).toBeNull();
+    expect((await listPolls()).some((p) => p.id === id)).toBe(false);
+  });
+
+  test("없는 투표 삭제는 false", async () => {
+    expect(await deletePoll("00000000-0000-0000-0000-000000000000")).toBe(false);
+    expect(await deletePoll("bad")).toBe(false);
   });
 });

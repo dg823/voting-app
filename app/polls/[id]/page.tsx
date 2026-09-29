@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { cookies } from "next/headers";
 import { notFound, redirect } from "next/navigation";
+import AdminPollActions from "@/components/AdminPollActions";
 import PollMeta from "@/components/PollMeta";
 import VoteForm from "@/components/VoteForm";
+import { isAdmin } from "@/lib/auth";
 import { getPoll } from "@/lib/polls";
 import { votedCookieName } from "@/lib/vote-cookie";
 
@@ -10,11 +12,13 @@ export default async function PollPage({ params }: PageProps<"/polls/[id]">) {
   const { id } = await params;
   const poll = await getPoll(id);
   if (!poll) notFound();
+  const admin = await isAdmin();
 
   if ((await cookies()).has(votedCookieName(id))) redirect(`/polls/${id}/results`);
 
   return (
     <section>
+      {admin && <AdminPollActions pollId={poll.id} question={poll.question} />}
       <PollMeta poll={poll} />
       <h1 className="mb-6 text-2xl font-bold">{poll.question}</h1>
       <VoteForm
